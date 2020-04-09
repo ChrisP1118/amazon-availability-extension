@@ -1,0 +1,26 @@
+{
+  "name": "Amazon Availability",
+  "description": "Show product availability when browsing Amazon products",
+  "version": "1.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.amazon.com/*"
+      ],
+      "js": [
+        "amazon-availability.js"
+      ],
+      "css": [
+        "amazon-availability.css"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}
