@@ -1,3 +1,5 @@
+let parallelLoadCount = 3;
+
 let boxElements = [
     '[data-feature-name="dpFastTrackInsideBuyBox"]',
     '[data-feature-name="promiseBasedBadgeInsideBuyBox"]',
@@ -7,64 +9,86 @@ let boxElements = [
     '[data-feature-name="availability"]'
 ];
 
-let parallelLoadCount = 3;
+let items = [];
 
-let blocks = document.querySelectorAll('.s-result-list div[data-asin]:not([data-asin=""])');
-console.log('Checking availability for ' + blocks.length + ' products...');
-
-blocks.forEach(block => {
-    //let availabilityBlockContainer = block.querySelector('div.s-expand-height div.a-section');
-    let availabilityBlockContainer = block.querySelector('div.a-section');
-
-    if (!availabilityBlockContainer)
+document.querySelectorAll('.s-result-list div[data-asin]:not([data-asin=""])').forEach(item => {
+    let container = item.querySelector('div.a-section');
+    if (!container)
         return;
 
-    availabilityBlockContainer = availabilityBlockContainer.parentElement;
-
-    let availabilityBlock = document.createElement('div');
-    availabilityBlock.className = 'amazon-availability-box';
-    availabilityBlock.innerText = 'Loading availability...';
-
-    availabilityBlockContainer.appendChild(availabilityBlock);
-})
-
-let loadBlock = function (index) {
-    if (index >= blocks.length)
+    let anchor = item.querySelector('h2 a');
+    if (!anchor)
         return;
 
-    let block = blocks[index];
-    let availabilityBlock = block.querySelector('div.amazon-availability-box');
-    let anchor = block.querySelector('h2 a');
-    let name = anchor.querySelector('span').innerText;
-
-    if (!availabilityBlock) {
-        console.log('No availability block found for "' + name + '" (at: ' + anchor.href + ')');
-        loadBlock(index + parallelLoadCount);
+    let name = anchor.querySelector('span');
+    if (!name)
         return;
-    }
 
-    console.log('Checking availability for "' + name + '" at: ' + anchor.href);
+    items.push({
+        name: name.innerText,
+        url: anchor.href,
+        container: container.parentElement
+    });
+});
 
-    fetch(anchor.href, {
+document.querySelectorAll('li.zg-item-immersion').forEach(item => {
+    let container = item.querySelector('.zg-item');
+    if (!container)
+        return;
+
+    let anchor = item.querySelector('a');
+    if (!anchor)
+        return;
+
+    let name = anchor.querySelector('div');
+    if (!name)
+        return;
+
+    items.push({
+        name: ''/*name.innerText*/,
+        url: anchor.href,
+        container: container
+    });
+});
+
+items.forEach(item => {
+    item.displayElement = document.createElement('div');
+    item.displayElement.className = 'amazon-availability-box';
+    item.displayElement.innerText = 'Loading availability...';
+
+    item.container.appendChild(item.displayElement);
+});
+
+console.log('Checking availability for ' + items.length + ' products...');
+
+let loadItem = function (index) {
+    if (index >= items.length)
+        return;
+
+    let item = items[index];
+
+    console.log('Checking availability for "' + item.name + '" at: ' + item.url);
+
+    fetch(item.url, {
         credentials: 'same-origin'
     })
     .then(response => {
         if (response.status != 200) {
-            console.log('Error (status code ' + response.status + ') loading: ' + anchor.href);
+            console.log('Error (status code ' + response.status + ') loading: ' + item.url);
         } else {
             response.text().then(bodyText => {
                 let parser = new DOMParser();
                 let doc = parser.parseFromString(bodyText, "text/html");
-                availabilityBlock.innerHTML = '';
+                item.displayElement.innerHTML = '';
 
                 boxElements.forEach(boxElement => {
                     let el = doc.querySelector(boxElement);
                     if (el)
-                        availabilityBlock.appendChild(el);
+                        item.displayElement.appendChild(el);
                 });
 
-                if (availabilityBlock.innerHTML == '')
-                    availabilityBlock.innerHTML = 'No availability data found.';
+                if (item.displayElement.innerHTML == '')
+                    item.displayElement.innerHTML = 'No availability data found.';
 
             })
         }
@@ -73,9 +97,9 @@ let loadBlock = function (index) {
         console.log(error);
     })
     .finally(() => {
-        loadBlock(index + parallelLoadCount);
+        loadItem(index + parallelLoadCount);
     });
 }
 
 for (let i = 0; i < parallelLoadCount; ++i)
-    loadBlock(i);
+    loadItem(i);
